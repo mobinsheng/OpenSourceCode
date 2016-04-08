@@ -4,6 +4,12 @@
 #include <pthread.h>
 #include "macro_define.h"
 
+#include <string>
+#include <time.h>
+#include <stdlib.h>
+
+using namespace std;
+
 /* 每个线程的buffer size*/
 #define   _LOG_BUFFSIZE  1024*1024*4
 /* 当前进程的 Stream IO buffer size*/
@@ -21,9 +27,81 @@ typedef  enum LogLevel {
 	LL_ERROR = 5,
 }LogLevel;
 
-/**
-*	Log_Writer  日志类
-*/
+
+class CreateLogFile
+{
+public:
+    CreateLogFile()
+    {
+        // 创建一个可写文件
+        m_pFile = 0;
+        m_strFileName = "";
+
+        time_t ntime;
+        tm* ptimeinfo;
+
+        time(&ntime);
+        ptimeinfo = localtime(&ntime);
+
+        char szBuffer[1024] = {0};
+
+        long now = clock();
+        char nowBuf[64] = {0};
+        sprintf(nowBuf,"%ld",now);
+
+        sprintf(szBuffer,"%4d-%02d-%02d",1900+ptimeinfo->tm_year, 1+ptimeinfo->tm_mon,
+            ptimeinfo->tm_mday);
+
+        m_strFileName = szBuffer;
+
+        m_strFileName += "-";
+        m_strFileName += nowBuf;
+
+        m_strFileName += ".log";
+
+        m_pFile = fopen(m_strFileName.c_str(),"w+");
+
+    }
+    int GetRandomNum(int a,int b)//
+    {
+        static int initFlag = 0;
+        if (initFlag == 0)
+        {
+            srand((unsigned)time(NULL));
+            initFlag = 1;
+        }
+
+        return rand()%(b-a)+a;
+    }
+
+    void	Record(const string& str)
+    {
+        // 将信息写入到文件中
+        if (m_pFile == 0)
+        {
+            return;
+        }
+
+        fwrite(str.c_str(),str.size(),1,m_pFile);
+        fflush(m_pFile);
+    }
+
+    ~CreateLogFile()
+    {
+        // 关闭文件
+        if (m_pFile != 0)
+        {
+            fflush(m_pFile);
+            fclose(m_pFile);
+        }
+    }
+
+private:
+    string m_strFileName;		// 日志文件名字
+    FILE* m_pFile;					// 文件指针
+
+};
+
 class Log_Writer
 {
 	public:
@@ -64,7 +142,6 @@ class Log_Writer
 		//因为一个线程同一时间只有一个Log_Writer在干活，干完之后m_buffer就reset了
 		//所以即便一个线程用户多个Log_Write串行(因为一个线程内的运行态只有串行) 也是线程安全的！！！
 };
-
 extern Log_Writer WARN_W;
 extern Log_Writer INFO_W;
 
